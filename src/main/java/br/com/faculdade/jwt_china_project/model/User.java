@@ -1,4 +1,5 @@
 package br.com.faculdade.jwt_china_project.model;
+
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -18,6 +19,7 @@ import java.util.List;
 @Entity
 @Table(name = "users")
 public class User implements UserDetails {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -26,11 +28,20 @@ public class User implements UserDetails {
     private String nome;
 
     @Column(unique = true, nullable = false)
+    private String email;
+
+    @Column(nullable = false)
     private String password;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role;
+
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return List.of(new SimpleGrantedAuthority(role.name()));
+    }
 
     @Override
     public String getUsername() {
@@ -43,12 +54,12 @@ public class User implements UserDetails {
     }
 
     @Override
-    public boolean isAccountNonExpired() {
+    public boolean isAccountNonLocked() {
         return true;
     }
 
     @Override
-    public boolean isAccountNonLocked() {
+    public boolean isCredentialsNonExpired() {
         return true;
     }
 
