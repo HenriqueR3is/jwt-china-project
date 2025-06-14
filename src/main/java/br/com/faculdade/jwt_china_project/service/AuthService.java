@@ -5,14 +5,12 @@ import br.com.faculdade.jwt_china_project.dto.LoginRequestDto;
 import br.com.faculdade.jwt_china_project.dto.RegisterRequestDto;
 import br.com.faculdade.jwt_china_project.model.User;
 import br.com.faculdade.jwt_china_project.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
-@RequiredArgsConstructor
 public class AuthService {
 
     private final UserRepository userRepository;
@@ -20,21 +18,45 @@ public class AuthService {
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
 
-    public AuthResponseDto register(RegisterRequestDto request) {
-        var user = User.builder()
-                .nome(request.getName())
-                .email(request.getEmail())
-                .password(passwordEncoder.encode(request.getPassword())) // Codifica a senha
-                .role(request.getRole())
-                .build();
-
-        userRepository.save(user);
-
-        var jwtToken = jwtService.generateToken(user);
-
-        return AuthResponseDto.builder().token(jwtToken).build();
+    /**
+     * Construtor explícito para a Injeção de Dependência do Spring.
+     * Como removemos o @RequiredArgsConstructor do Lombok, precisamos
+     * declarar este construtor manualmente para que o Spring saiba
+     * como criar uma instância desta classe e injetar os componentes necessários.
+     */
+    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService, AuthenticationManager authenticationManager) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
+        this.authenticationManager = authenticationManager;
     }
 
+    /**
+     * Lógica para registrar um novo usuário.
+     * @param request Dados do usuário vindo do controller.
+     * @return Uma resposta contendo o token JWT para o novo usuário.
+     */
+    public AuthResponseDto register(RegisterRequestDto request) {
+        User newUser = new User(
+                null,
+                request.getName(),
+                request.getEmail(),
+                passwordEncoder.encode(request.getPassword()),
+                request.getRole()
+        );
+
+        userRepository.save(newUser);
+
+        var jwtToken = jwtService.generateToken(newUser);
+
+        return new AuthResponseDto(jwtToken);
+    }
+
+    /**
+     * Lógica para autenticar um usuário existente.
+     * @param request Dados de login (email e senha) vindo do controller.
+     * @return Uma resposta contendo o token JWT se a autenticação for bem-sucedida.
+     */
     public AuthResponseDto login(LoginRequestDto request) {
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
@@ -44,10 +66,9 @@ public class AuthService {
         );
 
         var user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow();
+                .orElseThrow(() -> new IllegalStateException("Usuário não encontrado após autenticação bem-sucedida."));
 
         var jwtToken = jwtService.generateToken(user);
-
-        return AuthResponseDto.builder().token(jwtToken).build();
+        return new AuthResponseDto(jwtToken);
     }
 }
